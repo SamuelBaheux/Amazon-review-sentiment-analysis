@@ -125,3 +125,69 @@ class graphics_and_plots(Nlp):
         plt.show()
 
 
+class Recommandation(Nlp):
+    def __init__(self):
+        super().__init__()
+        self.dico_jeux_exemple = {'Cyberpunk' : ['B07DK1H3H5','B07SMBK245','B07TJ5Z389','B07S7RQST5'],
+                     'The witcher 3' : ['B07Z9Z39ZW','B087T1FS9K','B00DE88BU6','B01FUCV5K6','B00L4SD1F8','B01L0TM25U','B07SZJQM7P','B0045Y2IVQ','B07J2MQZK5','B00FUC6SZO','B0858VSZCW','B0BRNZRPSH','B01L26C0US','B07X3ZWL7X','B00ICWO1XA','B07X6JP2QF','B00WRJCRP8','B074MY5TN6','B0BRNY8987','B01DDRA9UW','B00WV7PT9W','B01B4YOBDM'],
+                     'Fifa22' : ['B089GGLKHQ','B08KJPPBQK','B08J27JV17','B08BMTDPLG','B08J2BPWGS','B08J2454R3','B08HWGBNLJ','B08BP3XFNH','B08B9Z6573','B08BMVN1PZ','B08J248GXK','B08NDRGH4K','B08J28WVHL','B08J2HDGKX','B08KTHWR1D','B08KXSFFJ6','B08GPQQTX1','B09486H473'],
+                     'Call of Duty: Modern Warfare' : ['B07SNN8GV5','B074CB2RNQ','B07ZNVGJS1']
+                     }
+        self.categories_bonnes = {
+            'graphismes': ['graphism', 'graphics', 'graphic', 'look', 'visuals', 'art', 'design', 'aesthetics',
+                           'rendering', 'resolution', 'detail', 'texture', 'animation'],
+            'gameplay': ['gameplay', 'combat', 'fight', 'experience', 'mechanics', 'controls', 'interaction',
+                         'challenge', 'pace', 'flow', 'depth', 'strategy', 'tactics'],
+            'enfants': ['kids', 'kid', 'son', 'daughter', 'sons', 'daughters', 'children', 'child', 'young ones',
+                        'offspring', 'little ones', 'family'],
+            'musiques_sons': ['headset', 'music', 'musics', 'sound', 'sounds', 'audio', 'ambient', 'score', 'tracks',
+                              'effects', 'voiceover', 'dialogue'],
+            'bon_scenario_histoire': ['story', 'characters', 'character', 'feel', 'feelings', 'feels', 'narrative',
+                                      'plot', 'lore', 'world-building', 'dialogue', 'twists', 'development'],
+            'se_joue_avec_manette': ['controller', 'controllers', 'gamepad', 'joystick', 'input device', 'remote',
+                                     'pad', 'analog stick', 'd-pad', 'motion controls'],
+            'open_world': ['open', 'liberty', 'freedom', 'sandbox', 'exploration', 'non-linear', 'vast', 'expansive',
+                           'immersive', 'world design', 'environment', 'map size', 'boundless'],
+            'jeu_facile': ['easy', 'accessible', 'simple', 'casual', 'beginner-friendly', 'user-friendly',
+                           'approachable', 'undemanding', 'relaxed'],
+            'jeu_faisant_partie_dune_saga': ['first', 'better', 'improved', 'sequel', 'prequel', 'series', 'franchise',
+                                             'installment', 'continuation', 'universe', 'lore', 'canon'],
+            'jeu_original': ['original', 'new', 'innovative', 'unique', 'fresh', 'creative', 'novel', 'groundbreaking',
+                             'distinctive', 'trailblazing', 'avant-garde'],
+            'rapport_qualite_prix': ['price', 'prices', 'worth', 'quality', 'works', 'buy', 'bought', 'value',
+                                     'affordable', 'cost-effective', 'investment', 'budget-friendly', 'expensive'],
+            'jeu_fun': ['fun', 'happy', 'enjoyable', 'entertaining', 'amusing', 'joyful', 'lighthearted', 'delightful',
+                        'cheerful', 'playful', 'upbeat', 'spirited'],
+            'jeu_sombre': ['sad', 'tears', 'dead', 'death', 'depressing', 'bleak', 'gloomy', 'tragic', 'grim', 'morbid',
+                           'melancholic', 'dark'],
+            'jeu_dur': ['hard', 'hardcore', 'difficult', 'though', 'challenging', 'punishing', 'demanding', 'intense',
+                        'grueling', 'tough', 'unforgiving', 'steep']
+        }
+        self.categories_mauvaises = {
+            'jeu_bug': ['bugs', 'bug', 'glitch', 'glitches', 'errors', 'crashes', 'issues', 'problems', 'flaws',
+                        'defects'],
+            'mauvais_gameplay': ['gameplay', 'combat', 'fight', 'experience', 'mechanics', 'controls', 'interaction',
+                                 'challenge', 'pace', 'flow', 'depth', 'strategy', 'tactics'],
+            'jeu_trop_volumineux': ['gb', 'GB', 'giga', 'gigas', 'go', 'GO', 'Gb', 'gig', 'Gig', 'download', 'Download',
+                                    'update', 'install'],
+            'jeu_trop_cher': ['price', 'prices', 'worth', 'quality', 'works', 'buy', 'bought', 'value', 'affordable',
+                              'cost-effective', 'investment', 'budget-friendly', 'expensive', 'money', 'cost', 'costs'],
+            'mauvais_graphismes': ['graphism', 'graphics', 'graphic', 'look', 'visuals', 'art', 'design', 'aesthetics',
+                                   'rendering', 'resolution', 'detail', 'texture', 'animation']
+        }
+
+    def calculate_prop_adj_jeu(self, jeu, cat, sentiment):
+        parent = self.dico_jeux_exemple[jeu]
+        df_temp = self.df2[self.df2['parent_asin'].isin(parent)].copy()
+        df_temp = df_temp[df_temp['sentiment_pred'] == sentiment]
+        df_temp['text'] = df_temp['text'].fillna('')
+        print(df_temp.shape)
+        prop_adj = {}
+        for key in cat.keys():
+            part_key = round(df_temp['text'].apply(lambda x: sum(word in x for word in cat[key])).sum()/df_temp.shape[0]* 100, 2)
+            prop_adj[key] = part_key
+        return prop_adj
+
+
+
+
