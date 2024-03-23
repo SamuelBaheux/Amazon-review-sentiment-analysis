@@ -8,7 +8,6 @@ from nltk.sentiment import SentimentIntensityAnalyzer
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
-import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.probability import FreqDist
@@ -21,32 +20,34 @@ nltk.download('vader_lexicon')
 
 class Dataprep:
     def __init__(self):
+        self.col = None
+        self.filtered_text = None
         self.df = None
         self.df2 = None
         self.ps = PorterStemmer()
 
     def import_data(self):
         self.df = pd.read_csv('./data/data_JV_2020_2023_tokenised.csv')
+        return self.df
+
 
     def datapreprocess(self):
         self.df['title_y'] = self.df['title_y'].fillna('')
         self.df['text'] = self.df['text'].fillna('')
-        self.df2 = self.df.iloc[:2000, :].copy()
-
-    def stem_word(self, word):
-        return self.ps.stem(word)
-
+        self.df2 = self.df.iloc[:500, :].copy()
+        
     def stem_column(self, column):
-        return column.apply(lambda x: ' '.join([self.stem_word(word) for word in nltk.word_tokenize(x)]))
+        self.col = column.apply(lambda x: ' '.join([self.ps.stem(word) for word in nltk.word_tokenize(x)]))
+        return self.col
 
     def remove_stop_words(self, text):
         tokens = word_tokenize(text)
         stop_words = set(stopwords.words("english"))
         filtered_tokens = [word for word in tokens if word.lower() not in stop_words]
-        self.filtered_text = ' '.join(filtered_tokens)
+        return ' '.join(filtered_tokens)
 
     def supp_stopwords(self):
-        self.df2["avis_stopwords"] = self.df2["text"].apply(self.remove_stop_words)
+        self.df2["avis_stopwords"] = self.df2["text"].apply(lambda x: self.remove_stop_words(x))
         self.df2["avis_preprocess"] = self.stem_column(self.df2["avis_stopwords"])
 
 
@@ -62,6 +63,7 @@ class Nlp(Dataprep):
         self.mots_frequents = None
         self.mots_freq_positifs = None
         self.mots_freq_negatifs = None
+        self.df2 = self.df2
 
     def get_sentiment(self, text):
         max_length = 512
@@ -70,8 +72,11 @@ class Nlp(Dataprep):
         return self.result["label"]
 
     def apply_sentiment(self):
-        self.df2['sentiment_HF'] = self.df2['text'].apply(self.get_sentiment)
-
+        if self.df2 is not None:
+            self.df2['text'] = self.df2['text'].fillna('')
+            self.df2['sentiment_HF'] = self.df2['text'].apply(lambda x: self.get_sentiment(x))
+        else:
+            print("Erreur: Aucune donnée disponible dans df2.")
     def conversion_en_int(self):
         self.df2['rating'] = self.df2['rating'].astype('int')
         self.df2['sentiment_pred'] = self.df2['sentiment_HF'].apply(
@@ -102,27 +107,34 @@ class Nlp(Dataprep):
         self.mots_freq_positifs = FreqDist(self.mots_impactants(self.df2[self.df2['sentiment_pred'] == 3]['text']))
         self.mots_freq_negatifs = FreqDist(self.mots_impactants(self.df2[self.df2['sentiment_pred'] == 1]['text']))
 
-
-class graphics_and_plots(Nlp):
+class Graphics_and_plots(Nlp):
     def __init__(self):
         super().__init__()
         self.wordcloud = None
 
-    def word_cloud_negatif(self):
-        WordCloud(width=900, height=500, background_color='white').generate_from_frequencies(
-            self.mots_freq_negatifs)
-        plt.figure(figsize=(10, 5))
-        plt.imshow(self.wordcloud, interpolation='bilinear')
-        plt.axis('off')
-        plt.show()
+    def generate_wordcloud(self, mots_freq):
+        return WordCloud(width=900, height=500, background_color='white').generate_from_frequencies(mots_freq)
 
-    def word_cloud_positif(self):
-        WordCloud(width=900, height=500, background_color='white').generate_from_frequencies(
-            self.mots_freq_positifs)
-        plt.figure(figsize=(10, 5))
-        plt.imshow(self.wordcloud, interpolation='bilinear')
-        plt.axis('off')
-        plt.show()
+    def word_cloud_positifs(self):
+        if self.mots_freq_positifs is not None:
+            self.wordcloud = self.generate_wordcloud(self.mots_freq_positifs)
+            plt.figure(figsize=(10, 5))
+            plt.imshow(self.wordcloud, interpolation='bilinear')
+            plt.axis('off')
+            plt.show()
+        else:
+            print("Erreur: Aucune donnée disponible pour les mots positifs.")
+
+    def word_cloud_negatifs(self):
+        if self.mots_freq_positifs is not None:
+            self.wordcloud = self.generate_wordcloud(self.mots_freq_negatifs)
+            plt.figure(figsize=(10, 5))
+            plt.imshow(self.wordcloud, interpolation='bilinear')
+            plt.axis('off')
+            plt.show()
+        else:
+            print("Erreur: Aucune donnée disponible pour les mots positifs.")
+
 
 
 class Recommandation(Nlp):
