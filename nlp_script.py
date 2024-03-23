@@ -15,7 +15,6 @@ from nltk.sentiment import SentimentIntensityAnalyzer
 
 nltk.download("punkt")
 nltk.download("stopwords")
-nltk.download('vader_lexicon')
 
 
 class Dataprep:
@@ -34,7 +33,8 @@ class Dataprep:
     def datapreprocess(self):
         self.df['title_y'] = self.df['title_y'].fillna('')
         self.df['text'] = self.df['text'].fillna('')
-        self.df2 = self.df.iloc[:500, :].copy()
+        self.df2 = self.df[['text','title_x','title_y','parent_asin','rating']].copy()
+        self.df2 = self.df2.iloc[:10000, :].copy()
         
     def stem_column(self, column):
         self.col = column.apply(lambda x: ' '.join([self.ps.stem(word) for word in nltk.word_tokenize(x)]))
@@ -144,6 +144,7 @@ class Recommandation(Nlp):
         super().__init__()
         self.prop_adj_bad = None
         self.prop_adj_good = None
+        self.df_jeux_qualités = pd.DataFrame()
         self.dico_jeux_exemple = {'The Witcher 2': ['B00ICWO1XA', 'B07X6JP2QF'],
          'The Witcher 3': ['B00DE88BU6','B01L0TM25U','B07SZJQM7P','B07J2MQZK5','B0858VSZCW','B0BRNZRPSH','B01L26C0US','B07X3ZWL7X','B074MY5TN6','B0BRNY8987','B01DDRA9UW','B01B4YOBDM'],
          'Minecraft': ['B07D62Y1KQ','B0B5SVBKTR','B07DG77KPX','B010KYDNDG','B00NXSRP72','B08M78SGGD','B07D13QGXM','B0B1H3DY7L','B06XH297M5','B09DDZHZF6','B0815VFZRL','B09TWFC6SK','B08FV3CTVN','B07NY1LGBV','B07NTR1KL4','B08FXX1LS3','B07JCRY8WP','B07CB12726','B082H2SR4K','B0746XH9M9','B082WJXLPN','B077TQWCFB','B00KVQYJR8','B074KSX7PJ','B01LWMKQWU','B0169NZNKI','B09JTJFYBF','B01F04ZDO8','B00CKKIJ24','B00I6E6SH6','B07JMHZMX1','B00DUV027M','B00K2S5PUK','B01LZVTM35','B014XCWXIW','B07NZ8QZW5','B00NGBTFWY','B08FN6FBD6','B00O8RMBLC','B014XCWYOK','B082J7S5L6','B09GWH4BWZ','B01BVX6B02','B00BU3ZLJQ','B07DVTSDQ7','B07D2XKQJH','B07DVX7V1R','B07NYGMPFJ','B07D9SB7XW','B07JX4PP8G','B082J3D5HN','B00D4B8LX0','B09CDGRP3Y','B08PW55J48','B0141736OO','B00K2S5PUA','B01LYOVTQT','B07TNCX3WZ','B09K8FH99X','B08JTZFDYV','B01M0J6X90','B00T5EGJMK','B0155WN6G2','B07BK9JZHW','B014XCWZA8','B08KHRKWGR','B082S9KV7X','B07L41PGS9','B0764RLHGK','B014XCWYPO','B0898B8Z8Y','B08JV7K25C','B07D131MS4','B09YZQFCD1','B07TKD64W5','B01EA8STK0','B07THVC34Y','B074X1FCXP','B084P62R48','B0170TUPVC','B07HZD7S92'],
@@ -230,7 +231,7 @@ class Recommandation(Nlp):
         print(df_temp.shape)
         self.prop_adj_good = {}
         for key in self.categories_bonnes.keys():
-            part_key = round(df_temp['text'].apply(lambda x: sum(word in x for word in self.categories_bonnes[key])).sum()/df_temp.shape[0]* 100, 2)
+            part_key = df_temp['text'].apply(lambda x: sum(word in x for word in self.categories_bonnes[key])).sum()
             self.prop_adj_good[key] = part_key
         return self.prop_adj_good
     
@@ -242,10 +243,20 @@ class Recommandation(Nlp):
         print(df_temp.shape)
         self.prop_adj_bad = {}
         for key in self.categories_mauvaises.keys():
-            part_key = round(df_temp['text'].apply(lambda x: sum(word in x for word in self.categories_mauvaises[key])).sum()/df_temp.shape[0]* 100, 2)
+            part_key = df_temp['text'].apply(lambda x: sum(word in x for word in self.categories_mauvaises[key])).sum()
             self.prop_adj_bad[key] = part_key
         return self.prop_adj_bad
 
+    def points_forts_jeu(self):
+        data = {}
+        for jeu in self.dico_jeux_exemple.keys():
+            meilleures_qualites = self.calculate_prop_mot_bon(jeu)
+            meilleures_qualites = sorted(meilleures_qualites.items(), key=lambda x: x[1], reverse=True)
+            meilleures_qualites = meilleures_qualites[:3]
+            data[jeu] = meilleures_qualites
+
+        self.df_jeux_qualités = pd.DataFrame(data)
+        self.df_jeux_qualités.columns = self.dico_jeux_exemple.keys()
 
 
 
